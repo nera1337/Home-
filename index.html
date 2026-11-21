@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Sterk Samen">
+<title>Sterk Samen</title>
+<style>
+:root{--bg:#eef1f5;--card:#fff;--fg:#141821;--muted:#5d6676;--line:#d5dbe4;--accent:#2a5bd7;--bad:#c23b2e;color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0e1116;--card:#171b22;--fg:#e8ecf2;--muted:#9aa4b4;--line:#2a313c;--accent:#5b86f0;--bad:#ef5a4c;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e1116;--card:#171b22;--fg:#e8ecf2;--muted:#9aa4b4;--line:#2a313c;--accent:#5b86f0;--bad:#ef5a4c;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding:max(24px,env(safe-area-inset-top)) 16px 32px}
+main{max-width:460px;margin:0 auto}
+h1{font-size:1.6rem;margin:0 0 4px;letter-spacing:.02em}
+p{margin:.4em 0;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:16px 0}
+label{display:block;font-weight:600;margin:12px 0 4px}
+input{width:100%;font:inherit;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:12px 16px;background:var(--accent);color:#fff;width:100%;margin-top:14px;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+.msg{min-height:1.5em;margin-top:10px;font-weight:600}
+.msg.bad{color:var(--bad)}
+#qr{display:flex;justify-content:center;margin:12px 0}
+#qr svg{width:240px;height:240px;background:#fff;padding:10px;border-radius:8px;max-width:100%}
+.lang{float:right;background:none;color:var(--accent);width:auto;margin:0;padding:4px 8px;border:1px solid var(--line)}
+.spin{text-align:center;margin-top:30vh;color:var(--muted)}
+[hidden]{display:none!important}
+</style>
+</head><body>
+<script src="qr.js"></script>
+<main id="m"><p class="spin" id="spin">…</p></main>
+<script>
+(function(){
+var NL=/^nl/i.test(navigator.language||"");
+try{var l=JSON.parse(localStorage.getItem("ss-lang")||"null");if(l==="nl")NL=true;if(l==="en")NL=false}catch(e){}
+function T(en,nl){return NL?nl:en}
+var m=document.getElementById("m");
+function getCfg(){try{return JSON.parse(localStorage.getItem("gh-cfg")||"null")}catch(e){return null}}
+function setCfg(c){localStorage.setItem("gh-cfg",JSON.stringify(c))}
+function b64u(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")}
+function unb64u(s){s=s.replace(/-/g,"+").replace(/_/g,"/");while(s.length%4)s+="=";return decodeURIComponent(escape(atob(s)))}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+
+// setup link from the other phone: #k=<repo+key>. The part after # never leaves the phone.
+var h=location.hash,wantSetup=h==="#setup";
+if(h.indexOf("#k=")===0){
+  try{var o=JSON.parse(unb64u(h.slice(3)));if(o.r&&o.t)setCfg({repo:o.r,token:o.t})}catch(e){}
+  history.replaceState(null,"",location.pathname+location.search);
+}
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(function(){});
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(function(){});
+
+function gh(path,accept){var c=getCfg();return fetch("https://api.github.com/repos/"+c.repo+path,{headers:{"Authorization":"Bearer "+c.token,"Accept":accept||"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"},cache:"no-store"})}
+function timeout(p,ms){return Promise.race([p,new Promise(function(_,no){setTimeout(function(){no(new Error("timeout"))},ms)})])}
+function cacheGet(){if(!window.caches)return Promise.resolve(null);return caches.open("ss-app").then(function(c){return c.match("app.html")}).then(function(r){return r?r.text():null}).catch(function(){return null})}
+function cachePut(t){if(!window.caches)return;caches.open("ss-app").then(function(c){return c.put("app.html",new Response(t,{headers:{"Content-Type":"text/html"}}))}).catch(function(){})}
+
+var HEAD='<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'+
+  '<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">'+
+  '<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Sterk Samen">'+
+  '<script src="ghdb.js"><\/script></head><body>';
+function show(html){document.open();document.write(HEAD+html+"\n</body></html>");document.close()}
+
+function boot(){
+  var c=getCfg();if(!c||wantSetup)return setup();
+  timeout(gh("/contents/app.html","application/vnd.github.raw"),8000).then(function(r){
+    if(r.status===401||r.status===403||r.status===404)return setup(T("This key no longer works. Make a new one (see the steps) and paste it here.","Deze sleutel werkt niet meer. Maak een nieuwe (zie de stappen) en plak hem hier."));
+    if(!r.ok)throw new Error("http "+r.status);
+    return r.text().then(function(t){cachePut(t);show(t)});
+  }).catch(function(){
+    cacheGet().then(function(t){
+      if(t)return show(t);
+      m.innerHTML='<div class="card"><p>'+T("No connection, and the app is not on this phone yet. Try again when you're online.","Geen verbinding, en de app staat nog niet op deze telefoon. Probeer het opnieuw als je online bent.")+'</p><button id="re">'+T("Try again","Opnieuw")+'</button></div>';
+      document.getElementById("re").onclick=function(){location.reload()};
+    });
+  });
+}
+
+function setup(msg){
+  var c=getCfg()||{};
+  m.innerHTML='<button class="lang" id="lg">'+(NL?"EN":"NL")+'</button><h1>Sterk Samen</h1>'+
+    '<div class="card"><p>'+T("Connect this phone once. The repo and key stay on this phone only. Got a link from the other phone? Paste it in the Key field.","Koppel deze telefoon één keer. Repo en sleutel blijven alleen op deze telefoon. Link van de andere telefoon gekregen? Plak hem in het veld Sleutel.")+'</p>'+
+    '<label for="r">'+T("Private repo (name/repo)","Privé-repo (naam/repo)")+'</label><input id="r" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="name/repo" value="'+esc(c.repo||"")+'">'+
+    '<label for="t">'+T("Key","Sleutel")+'</label><input id="t" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…" value="'+esc(c.token||"")+'">'+
+    '<button id="go">'+T("Connect","Koppelen")+'</button><div class="msg'+(msg?" bad":"")+'" id="ms">'+esc(msg||"")+'</div></div>'+
+    '<div class="card" id="share" hidden><p><b>'+T("Second phone","Tweede telefoon")+'</b><br>'+T("Scan this code with the other phone's camera, or copy the link and send it privately. It contains the key: don't share it with anyone else.","Scan deze code met de camera van de andere telefoon, of kopieer de link en stuur hem privé. De sleutel zit erin: deel hem met niemand anders.")+'</p><div id="qr"></div>'+
+    '<button class="ghost" id="cp">'+T("Copy link","Link kopiëren")+'</button><button id="op">'+T("Open the app","App openen")+'</button>'+
+    '<button class="ghost" id="out">'+T("Disconnect this phone","Deze telefoon ontkoppelen")+'</button></div>';
+  document.getElementById("lg").onclick=function(){NL=!NL;try{localStorage.setItem("ss-lang",JSON.stringify(NL?"nl":"en"))}catch(e){}setup(msg)};
+  var ms=document.getElementById("ms");
+  function connected(){
+    var link=location.origin+location.pathname+"#k="+b64u(JSON.stringify({r:getCfg().repo,t:getCfg().token}));
+    document.getElementById("share").hidden=false;
+    var q=document.getElementById("qr");q.innerHTML="";
+    try{var qr=qrcode(0,"L");qr.addData(link);qr.make();q.innerHTML=qr.createSvgTag({cellSize:4,margin:4,scalable:true})}catch(e){}
+    document.getElementById("cp").onclick=function(){(navigator.clipboard?navigator.clipboard.writeText(link):Promise.reject()).then(function(){ms.className="msg";ms.textContent=T("Link copied.","Link gekopieerd.")},function(){prompt("",link)})};
+    document.getElementById("op").onclick=function(){wantSetup=false;history.replaceState(null,"",location.pathname);boot()};
+    document.getElementById("out").onclick=function(){localStorage.removeItem("gh-cfg");if(window.caches)caches.delete("ss-app");setup()};
+  }
+  document.getElementById("go").onclick=function(){
+    var repo=document.getElementById("r").value.trim().replace(/^https?:\/\/github\.com\//,"").replace(/\/+$/,""),tok=document.getElementById("t").value.trim();
+    var ki=tok.indexOf("#k=");if(ki>=0){try{var o=JSON.parse(unb64u(tok.slice(ki+3)));repo=o.r;tok=o.t;document.getElementById("r").value=repo}catch(e){}}
+    if(!/^[\w.-]+\/[\w.-]+$/.test(repo)||!tok){ms.className="msg bad";ms.textContent=T("Fill in both fields.","Vul beide velden in.");return}
+    setCfg({repo:repo,token:tok});ms.className="msg";ms.textContent=T("Checking…","Controleren…");
+    gh("").then(function(r){
+      if(!r.ok)throw r.status;
+      return r.json().then(function(j){
+        if(!j.private){ms.className="msg bad";ms.textContent=T("This repo is public. Use the private one.","Deze repo is openbaar. Gebruik de privé-repo.");return}
+        if(j.permissions&&j.permissions.push===false){ms.className="msg bad";ms.textContent=T("This key can read but not save. Give it Contents: Read and write.","Deze sleutel kan lezen maar niet opslaan. Geef hem Contents: Read and write.");return}
+        ms.className="msg";ms.textContent=T("Connected.","Gekoppeld.");connected();
+      });
+    }).catch(function(){ms.className="msg bad";ms.textContent=T("That didn't work. Check the repo name and the key.","Dat lukte niet. Controleer de repo-naam en de sleutel.")});
+  };
+  if(c.repo&&c.token&&!msg)connected();
+}
+boot();
+})();
+</script>
+</body></html>
